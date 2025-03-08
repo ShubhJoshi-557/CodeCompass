@@ -1,3 +1,4 @@
+"use client";
 import {
   Sidebar,
   SidebarContent,
@@ -9,12 +10,16 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import useStore from "@/store/store";
 import { Edit } from "lucide-react";
 import Link from "next/link";
+import RepoTree from "../repotree/RepoTree";
+import { SelectRepo } from "../settings/SelectRepo";
 import { Button } from "../ui/button";
 import { UserTab } from "./UserTab";
 
 export function AppSidebar() {
+  const { currentRepo, updateCurrentRepo } = useStore();
   return (
     <Sidebar className="border-none">
       <Link href="/">
@@ -39,22 +44,30 @@ export function AppSidebar() {
           <SidebarGroupLabel>Repository</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* {["projects"].map((project) => (
-                <SidebarMenuItem key={project.name}>
-                  <SidebarMenuButton asChild>
-                    <a href={project.url}>
-                      <project.icon />
-                      <span>{project.name}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))} */}
               <SidebarMenuItem>
-                <SidebarMenuButton>Codebase</SidebarMenuButton>
+                <SelectRepo />
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {currentRepo?.link &&
+          currentRepo?.repo &&
+          currentRepo?.branch &&(
+            <SidebarGroup>
+              <SidebarGroupLabel>Explorer</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <RepoTree
+                      owner={currentRepo?.owner}
+                      repo={currentRepo?.repo}
+                      branch={currentRepo?.branch}
+                    />
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
         <SidebarGroup>
           <SidebarGroupLabel>Recent Searches</SidebarGroupLabel>
           <SidebarGroupContent>

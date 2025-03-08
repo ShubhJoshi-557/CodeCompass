@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar/AppSidebar";
 import AuthButton from "@/components/auth-button/AuthButton";
 import { ThemeToggleButton } from "@/components/theme-toggle-button/ThemeToggleButton";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
@@ -32,7 +33,7 @@ export default function AppLayout({
       {/* Flex container for layout */}
       <div className="flex flex-col min-h-screen w-full">
         {/* Fixed height header */}
-        <header className="sticky top-0 z-50 w-full border-b bg-white dark:border-neutral-900 dark:bg-neutral-900 p-5 h-16 flex items-center justify-between">
+        <header className="sticky top-0 z-50 w-full bg-neutral-50 dark:border-neutral-900 dark:bg-neutral-900 p-5 h-16 flex items-center justify-between">
           <SidebarTrigger />
           <div className="flex">
             <ThemeToggleButton />
@@ -42,7 +43,8 @@ export default function AppLayout({
 
         {/* Content area with margin-top to avoid overlap */}
         <main className="mt-5 h-full">{children}</main>
-        <footer className="sticky bottom-0 text-xs text-neutral-500 text-center p-2">
+        <Toaster />
+        <footer className="sticky bottom-0 text-xs bg-white dark:bg-neutral-950 text-neutral-500 text-center p-2">
           CodeCompass is powered by AI, and its results may not always be
           accurate.
         </footer>
