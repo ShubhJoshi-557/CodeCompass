@@ -17,9 +17,9 @@ CodeCompass helps developers navigate and understand complex codebases effortles
 
 ## 🚀 Installation  
 ```bash
-git clone https://github.com/yourusername/CodeCompass.git
-cd CodeCompass
-npm install  # or yarn install
-npm run dev  # Start the development server
+git clone https://github.com/ShubhJoshi-557/CodeCompass.git
+cd CodeCompass/frontend
+pnpm install  # or yarn install
+pnpm run dev  # Start the development server
 ```
 **🔗 Coming Soon: Web app, GitHub integration, VS Code extension!**
