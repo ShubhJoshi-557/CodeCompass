@@ -22,4 +22,4 @@ cd CodeCompass
 npm install  # or yarn install
 npm run dev  # Start the development server
 ```
-## 🔗 Coming Soon: Web app, GitHub integration, VS Code extension!
+**🔗 Coming Soon: Web app, GitHub integration, VS Code extension!**
