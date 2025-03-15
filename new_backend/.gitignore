@@ -5,3 +5,5 @@ embeddings.pkl
 faiss.index
 repos
 codecompass.db
+indexes 
+celerybeat-schedule

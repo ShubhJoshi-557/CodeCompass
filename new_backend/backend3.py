@@ -232,7 +232,6 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
 
 
 @celery.task
-@celery.task
 def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str):
     redis_client.set(task_id, "IN_PROGRESS")
     repo_path = f"./repos/{repo_owner}_{repo_name}"
