@@ -153,16 +153,6 @@ def get_all_repo_keys():
 # --------------------------
 # Utility Functions
 # --------------------------
-# def extend_lock(lock, lock_token):
-#     """Continuously extend the lock's TTL while the task is running."""
-#     while True:
-#         time.sleep(30)
-#         try:
-#             if lock.local.token != lock_token:
-#                 break
-#             lock.extend(60)
-#         except (AttributeError, LockError):
-#             break
 def extend_lock(lock, lock_token, stop_event):
     """Continuously extend the lock's TTL until signaled to stop."""
     while not stop_event.is_set():
@@ -346,6 +336,7 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
     
     if query.repo_name:
         matching_keys = [key for key in get_all_repo_keys() if key.endswith(f"_{query.repo_name}")]
+        print(get_all_repo_keys())
         for repo_key in matching_keys:
             idx, emb_cache = load_repo_index(repo_key)
             if idx is None:
@@ -390,11 +381,11 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
 # Celery Task: Clone and Index Repository with Incremental Hybrid Indexing
 # --------------------------
 @celery.task
-def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str):
+def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str, branch: str = None):
     redis_client.set(task_id, "IN_PROGRESS")
-    repo_key = f"{repo_owner}_{repo_name}"
-    repo_path = f"./repos/{repo_key}"
-    
+    repo_path = f"./repos/{repo_owner}_{repo_name}"
+    repo_key = f"{repo_owner}_{repo_name}_{branch or 'default'}"
+
     lock = redis_client.lock(f"lock_{repo_key}", timeout=60)
     if lock.acquire(blocking=False):
         try:
@@ -405,22 +396,33 @@ def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str):
             renewer.daemon = True
             renewer.start()
 
-            # Clone repository if not present using shallow clone, else pull latest changes
+            # Clone or fetch repo
             if not os.path.exists(repo_path):
                 os.makedirs(repo_path)
-                git.Repo.clone_from(
-                    f"https://github.com/{repo_owner}/{repo_name}.git",
-                    repo_path,
-                    depth=1  # Shallow clone with only the latest commit
-                )
+                repo = git.Repo.clone_from(f"https://github.com/{repo_owner}/{repo_name}.git", repo_path, depth=1)
             else:
-                try:
-                    repo = git.Repo(repo_path)
-                    repo.remotes.origin.pull()
-                    print(f"🔄 Repository {repo_key} updated successfully.")
-                except Exception as e:
-                    print(f"⚠️ Failed to pull latest changes for {repo_key}: {e}")
-            
+                repo = git.Repo(repo_path)
+                repo.git.fetch("--all")
+                repo.git.reset('--hard')  # Ensure clean state
+
+            # Determine the default branch if none is provided
+            default_branch = repo.git.symbolic_ref("refs/remotes/origin/HEAD").split("/")[-1]
+            if branch is None:
+                branch = default_branch
+
+            # Check branch existence & fallback
+            available_branches = [head.name for head in repo.heads] + [ref.name.split("/")[-1] for ref in repo.remote().refs]
+            print("available_branches", available_branches)
+            if branch in available_branches:
+                repo.git.checkout(branch)
+            else:
+                print(f"⚠️ Branch '{branch}' not found. Falling back to '{default_branch}'.")
+                repo.git.checkout(default_branch)
+                branch = default_branch
+
+            repo.git.reset('--hard')  # Ensure clean state before pulling
+            repo.git.pull()
+
             # Process files concurrently
             valid_chunks = []
             with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as executor:
@@ -430,39 +432,46 @@ def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str):
                     for file in files:
                         file_path = os.path.join(root, file)
                         futures.append(executor.submit(process_file, file_path, repo_path, repo_name))
+                
                 for future in tqdm(as_completed(futures), total=len(futures), desc="Processing files"):
                     chunks = future.result()
                     valid_chunks.extend(chunks)
-            
-            # Define a helper to compute embedding for a chunk
+
+            # Define embedding function with retry logic
             def get_chunk_embedding(chunk):
                 try:
-                    emb = embedding_model.encode(chunk["content"], convert_to_numpy=True).astype("float32")
-                    return emb
+                    return embedding_model.encode(chunk["content"], convert_to_numpy=True).astype("float32")
                 except Exception as e:
-                    print(f"Error embedding chunk: {e}")
+                    print(f"⚠️ Embedding failed: {e}. Retrying...")
                     return None
 
-            # Initialize our hybrid FAISS indexer for this repository
-            index_file = os.path.join(INDEXES_DIR, f"{repo_key}_hybrid.index")
-            metadata_file = os.path.join(INDEXES_DIR, f"{repo_key}_metadata.pkl")
-            version_file = os.path.join(INDEXES_DIR, f"{repo_key}_version.txt")
+            # Maintain base index for default branch, delta indexes for others
+            base_index_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_base_hybrid.index")
+            base_metadata_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_base_metadata.pkl")
+            version_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_{branch}_version.txt")
+
+            if branch == default_branch:
+                index_file, metadata_file = base_index_file, base_metadata_file
+            else:
+                index_file = os.path.join(INDEXES_DIR, f"{repo_key}_delta.index")
+                metadata_file = os.path.join(INDEXES_DIR, f"{repo_key}_delta_metadata.pkl")
+
             indexer = CodeCompassIndexer(index_file, metadata_file, d, nlist=256)
-            
-            # Incrementally update index using current valid_chunks
+
+            # Incremental Indexing
             indexer.update_index(valid_chunks, get_chunk_embedding)
-            
+
             stop_event.set()
 
             # Update version file atomically
             with open(version_file + ".tmp", "w") as f:
                 f.write(str(time.time()))
             os.replace(version_file + ".tmp", version_file)
-            
+
             # Invalidate in-memory cache
             if repo_key in loaded_indexes:
                 del loaded_indexes[repo_key]
-            
+
             redis_client.set(task_id, "COMPLETED")
         except Exception as e:
             redis_client.set(task_id, f"FAILED: {str(e)}")
@@ -475,81 +484,6 @@ def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str):
                 pass
     else:
         print(f"❌ Another process is already running this task: {repo_key}")
-
-# def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str):
-#     redis_client.set(task_id, "IN_PROGRESS")
-#     repo_key = f"{repo_owner}_{repo_name}"
-#     repo_path = f"./repos/{repo_key}"
-    
-#     lock = redis_client.lock(f"lock_{repo_key}", timeout=60)
-#     if lock.acquire(blocking=False):
-#         try:
-#             print(f"✅ Lock acquired for {repo_key}, starting renewal thread.")
-#             lock_token = lock.local.token
-#             stop_event = threading.Event()
-#             renewer = threading.Thread(target=extend_lock, args=(lock, lock_token, stop_event))
-#             renewer.daemon = True
-#             renewer.start()
-
-#             # Clone repository if not present
-#             if not os.path.exists(repo_path):
-#                 os.makedirs(repo_path)
-#                 git.Repo.clone_from(f"https://github.com/{repo_owner}/{repo_name}.git", repo_path)
-            
-#             # Process files concurrently
-#             valid_chunks = []
-#             with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as executor:
-#                 futures = []
-#                 for root, dirs, files in os.walk(repo_path):
-#                     dirs[:] = [d for d in dirs if d not in BLACKLIST_FOLDERS]
-#                     for file in files:
-#                         file_path = os.path.join(root, file)
-#                         futures.append(executor.submit(process_file, file_path, repo_path, repo_name))
-#                 for future in tqdm(as_completed(futures), total=len(futures), desc="Processing files"):
-#                     chunks = future.result()
-#                     valid_chunks.extend(chunks)
-            
-#             # Define a helper to compute embedding for a chunk
-#             def get_chunk_embedding(chunk):
-#                 try:
-#                     emb = embedding_model.encode(chunk["content"], convert_to_numpy=True).astype("float32")
-#                     return emb
-#                 except Exception as e:
-#                     print(f"Error embedding chunk: {e}")
-#                     return None
-
-#             # Initialize our hybrid FAISS indexer for this repository
-#             index_file = os.path.join(INDEXES_DIR, f"{repo_key}_hybrid.index")
-#             metadata_file = os.path.join(INDEXES_DIR, f"{repo_key}_metadata.pkl")
-#             version_file = os.path.join(INDEXES_DIR, f"{repo_key}_version.txt")
-#             indexer = CodeCompassIndexer(index_file, metadata_file, d, nlist=256)
-            
-#             # Incrementally update index using current valid_chunks
-#             indexer.update_index(valid_chunks, get_chunk_embedding)
-            
-#             stop_event.set()
-
-#             # Update version file atomically
-#             with open(version_file + ".tmp", "w") as f:
-#                 f.write(str(time.time()))
-#             os.replace(version_file + ".tmp", version_file)
-            
-#             # Invalidate in-memory cache
-#             if repo_key in loaded_indexes:
-#                 del loaded_indexes[repo_key]
-            
-#             redis_client.set(task_id, "COMPLETED")
-#         except Exception as e:
-#             redis_client.set(task_id, f"FAILED: {str(e)}")
-#             raise
-#         finally:
-#             try:
-#                 if lock.reacquire():
-#                     lock.release()
-#             except LockNotOwnedError:
-#                 pass
-#     else:
-#         print(f"❌ Another process is already running this task: {repo_key}")
 
 # --------------------------
 # Main Application Runner

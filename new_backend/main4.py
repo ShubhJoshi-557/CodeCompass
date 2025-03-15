@@ -128,13 +128,11 @@ def load_repo_index(repo_key):
     Checks both default branch (hybrid index) and non-default branch (delta index) based on available files.
     Uses a version file to decide if the in-memory version is up-to-date.
     """
-    # Determine file paths for both potential index types.
     index_file_hybrid = os.path.join(INDEXES_DIR, f"{repo_key}_hybrid.index")
     metadata_file_hybrid = os.path.join(INDEXES_DIR, f"{repo_key}_metadata.pkl")
     index_file_delta = os.path.join(INDEXES_DIR, f"{repo_key}_delta.index")
     metadata_file_delta = os.path.join(INDEXES_DIR, f"{repo_key}_delta_metadata.pkl")
 
-    # Select the available index files.
     if os.path.exists(index_file_hybrid) and os.path.exists(metadata_file_hybrid):
         index_file = index_file_hybrid
         metadata_file = metadata_file_hybrid
@@ -153,27 +151,13 @@ def load_repo_index(repo_key):
             version = f.read().strip()
     if repo_key in loaded_indexes and loaded_indexes[repo_key]["version"] == version:
         return loaded_indexes[repo_key]["index"], loaded_indexes[repo_key]["embedding_cache"]
+
     idx = faiss.read_index(index_file)
     with open(metadata_file, "rb") as f:
-        file_vector_map = pickle.load(f)
-    loaded_indexes[repo_key] = {"index": idx, "embedding_cache": file_vector_map, "version": version}
-    return idx, file_vector_map
-
-def get_all_repo_keys():
-    """
-    Returns a list of repository keys derived from index file names.
-    This includes both default branch (hybrid) indexes and non-default branch (delta) indexes.
-    """
-    files = glob.glob(os.path.join(INDEXES_DIR, "*_hybrid.index")) + glob.glob(os.path.join(INDEXES_DIR, "*_delta.index"))
-    repo_keys = []
-    for f in files:
-        basename = os.path.basename(f)
-        if basename.endswith("_hybrid.index"):
-            key = basename.replace("_hybrid.index", "")
-        elif basename.endswith("_delta.index"):
-            key = basename.replace("_delta.index", "")
-        repo_keys.append(key)
-    return repo_keys
+        metadata = pickle.load(f)
+        vector_mapping = metadata.get("vector_id_to_chunk", {})
+    loaded_indexes[repo_key] = {"index": idx, "embedding_cache": vector_mapping, "version": version}
+    return idx, vector_mapping
 
 # --------------------------
 # Utility Functions
@@ -233,7 +217,7 @@ def process_file(file_path, repo_path, repo_name):
         return []
 
 # --------------------------
-# CodeCompassIndexer: Hybrid FAISS Index (IVF + HNSW) with Incremental Updates
+# CodeCompassIndexer: Hybrid FAISS Index with Incremental Updates
 # --------------------------
 class CodeCompassIndexer:
     def __init__(self, index_path, metadata_path, dimension, nlist=256):
@@ -242,65 +226,72 @@ class CodeCompassIndexer:
         self.dimension = dimension
         self.nlist = nlist  # number of clusters for IVF
         self.index = self._create_index()
-        self.file_vector_map = {}  # Mapping from unique chunk key to vector ID
+        # Mapping from composite key ("filepath-chunk_index") to vector ID
+        self.chunk_to_vector_id = {}
+        # Reverse mapping: vector ID to snippet metadata
+        self.vector_id_to_chunk = {}
         self._load_metadata()
 
     def _create_index(self):
         """Creates a hybrid FAISS index using IVF with HNSW as the quantizer."""
         if os.path.exists(self.index_path):
             return faiss.read_index(self.index_path)
-        quantizer = faiss.IndexHNSWFlat(self.dimension, 32)  # HNSW quantizer with 32 neighbors
+        quantizer = faiss.IndexHNSWFlat(self.dimension, 32)
         index = faiss.IndexIVFFlat(quantizer, self.dimension, self.nlist, faiss.METRIC_L2)
-        # Pre-train index with random data to initialize clusters (placeholder)
         dummy_data = np.random.randn(1000, self.dimension).astype(np.float32)
         index.train(dummy_data)
         return index
 
     def _load_metadata(self):
-        """Loads file-to-vector mapping from disk if available."""
+        """Loads the mapping from disk if available."""
         if os.path.exists(self.metadata_path):
             with open(self.metadata_path, "rb") as f:
-                self.file_vector_map = pickle.load(f)
+                data = pickle.load(f)
+                self.chunk_to_vector_id = data.get("chunk_to_vector_id", {})
+                self.vector_id_to_chunk = data.get("vector_id_to_chunk", {})
         else:
-            self.file_vector_map = {}
+            self.chunk_to_vector_id = {}
+            self.vector_id_to_chunk = {}
 
     def save_index(self):
-        """Saves the FAISS index and metadata mapping to disk."""
+        """Saves the FAISS index and mapping to disk."""
         faiss.write_index(self.index, self.index_path)
+        data = {
+            "chunk_to_vector_id": self.chunk_to_vector_id,
+            "vector_id_to_chunk": self.vector_id_to_chunk
+        }
         with open(self.metadata_path, "wb") as f:
-            pickle.dump(self.file_vector_map, f)
+            pickle.dump(data, f)
 
     def update_index(self, current_chunks, get_embedding):
         """
         Incrementally updates the FAISS index based on current chunks.
-        Each chunk is uniquely identified by: f"{filepath}-{chunk_index}"
+        Each chunk is identified by a composite key: f"{filepath}-{chunk_index}"
         """
-        # Create set of unique keys for current chunks
         current_keys = {f"{chunk['filepath']}-{chunk['chunk_index']}" for chunk in current_chunks}
-        # Identify outdated keys (present in index but not in current set)
-        outdated_keys = set(self.file_vector_map.keys()) - current_keys
+        outdated_keys = set(self.chunk_to_vector_id.keys()) - current_keys
         if outdated_keys:
             print(f"[Indexer] Removing {len(outdated_keys)} outdated vectors...")
-            remove_ids = [self.file_vector_map[key] for key in outdated_keys]
+            remove_ids = [self.chunk_to_vector_id[key] for key in outdated_keys]
             self.index.remove_ids(np.array(remove_ids, dtype=np.int64))
             for key in outdated_keys:
-                del self.file_vector_map[key]
-
-        # Identify new chunks (not yet in file_vector_map)
-        new_chunks = [chunk for chunk in current_chunks if f"{chunk['filepath']}-{chunk['chunk_index']}" not in self.file_vector_map]
+                vector_id = self.chunk_to_vector_id.pop(key)
+                if vector_id in self.vector_id_to_chunk:
+                    del self.vector_id_to_chunk[vector_id]
+        new_chunks = [chunk for chunk in current_chunks if f"{chunk['filepath']}-{chunk['chunk_index']}" not in self.chunk_to_vector_id]
         if new_chunks:
             print(f"[Indexer] Adding {len(new_chunks)} new/modified chunks...")
             new_vectors = []
             new_ids = []
-            # Compute next available ID
-            next_id = max(self.file_vector_map.values(), default=-1) + 1
+            next_id = max(self.vector_id_to_chunk.keys(), default=-1) + 1
             for chunk in new_chunks:
                 emb = get_embedding(chunk)
                 if emb is not None:
                     new_vectors.append(emb)
                     new_ids.append(next_id)
-                    key = f"{chunk['filepath']}-{chunk['chunk_index']}"
-                    self.file_vector_map[key] = next_id
+                    composite_key = f"{chunk['filepath']}-{chunk['chunk_index']}"
+                    self.chunk_to_vector_id[composite_key] = next_id
+                    self.vector_id_to_chunk[next_id] = chunk
                     next_id += 1
             if new_vectors:
                 new_vectors = np.array(new_vectors, dtype=np.float32)
@@ -310,7 +301,7 @@ class CodeCompassIndexer:
 
     def search(self, query_vector, top_k=10):
         """Searches the FAISS index using the hybrid settings."""
-        self.index.nprobe = 10  # Limit clusters to search
+        self.index.nprobe = 10
         distances, indices = self.index.search(query_vector, top_k)
         return indices, distances
 
@@ -318,23 +309,29 @@ class CodeCompassIndexer:
 # FastAPI Setup and Schemas
 # --------------------------
 app = FastAPI()
+
 class SearchQuery(BaseModel):
     query: str
-    repo_owner: str = None      # New: Repository owner
-    repo_name: str = None       # New: Repository name
-    branch: str = None          # New: Branch (optional)
+    repo_owner: str = None
+    repo_name: str = None
+    branch: str = None
     folder: str = None
     filters: dict = {}
 
+# Updated indexing endpoint now accepts an optional branch parameter.
 @app.post("/repos/{repo_owner}/{repo_name}")
-def clone_repo(repo_owner: str, repo_name: str, db: Session = Depends(get_db)):
-    """Schedules repository cloning and indexing as a background task."""
+def clone_repo(repo_owner: str, repo_name: str, branch: str = None, db: Session = Depends(get_db)):
+    """
+    Schedules repository cloning and indexing as a background task.
+    The branch parameter (if provided) explicitly indicates which branch to index.
+    """
     repo_url = f"https://github.com/{repo_owner}/{repo_name}.git"
     repo = Repository(name=repo_name, owner=repo_owner, url=repo_url)
     db.add(repo)
     db.commit()
     task_id = str(uuid.uuid4())
-    clone_and_index_repo.apply_async(args=[repo_owner, repo_name, task_id])
+    # Pass the branch parameter to the Celery task.
+    clone_and_index_repo.apply_async(args=[repo_owner, repo_name, task_id, branch])
     return {"message": "Repo added for processing", "repo": repo_url, "task_id": task_id}
 
 @app.get("/task-status/{task_id}")
@@ -349,13 +346,9 @@ def get_task_status(task_id: str):
 def search_code(query: SearchQuery, db: Session = Depends(get_db)):
     """
     Searches code snippets using FAISS.
-    
-    - If repo_owner and repo_name are provided, it filters the available indexes for that repository.
-    - If a branch is provided, it matches exactly (mapping "default" or "base" to the default index).
-    - Otherwise, it searches across all indexes.
+    When repo_owner, repo_name and branch are provided, it only searches in that repository branch.
     """
     start_time = time.time()
-    # Updated cache key includes repo_owner, repo_name, and branch.
     cache_key = f"search:{query.query}:{query.repo_owner}:{query.repo_name}:{query.branch}:{query.folder}:{str(query.filters)}"
     cached_result = redis_client.get(cache_key)
     if cached_result:
@@ -367,20 +360,14 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
     if query.repo_owner and query.repo_name:
         base_prefix = f"{query.repo_owner}_{query.repo_name}"
         if query.branch:
-            branch_part = query.branch.lower()
-            # Map 'default' or 'base' to the base (default branch) index.
-            if branch_part in ["default", "base"]:
-                repo_key_target = f"{base_prefix}_base"
-            else:
-                repo_key_target = f"{base_prefix}_{query.branch}"
+            repo_key_target = f"{base_prefix}_{query.branch}"
             matching_keys = [key for key in get_all_repo_keys() if key == repo_key_target]
         else:
-            # If no branch is provided, search across all branches for the given repository.
             matching_keys = [key for key in get_all_repo_keys() if key.startswith(base_prefix)]
     else:
-        # No specific repository provided; search across all indexes.
         matching_keys = get_all_repo_keys()
 
+    print(matching_keys)
     for repo_key in matching_keys:
         idx, emb_cache = load_repo_index(repo_key)
         if idx is None:
@@ -403,6 +390,22 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
     redis_client.set(cache_key, pickle.dumps(response), ex=3600)
     return response
 
+def get_all_repo_keys():
+    """
+    Returns a list of repository keys derived from index file names.
+    This includes both default branch (hybrid) indexes and non-default branch (delta) indexes.
+    """
+    files = glob.glob(os.path.join(INDEXES_DIR, "*_hybrid.index")) + glob.glob(os.path.join(INDEXES_DIR, "*_delta.index"))
+    repo_keys = []
+    for f in files:
+        basename = os.path.basename(f)
+        if basename.endswith("_hybrid.index"):
+            key = basename.replace("_hybrid.index", "")
+        elif basename.endswith("_delta.index"):
+            key = basename.replace("_delta.index", "")
+        repo_keys.append(key)
+    return repo_keys
+
 # --------------------------
 # Celery Task: Clone and Index Repository with Incremental Hybrid Indexing
 # --------------------------
@@ -422,34 +425,31 @@ def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str, branch: 
             renewer.daemon = True
             renewer.start()
 
-            # Clone or fetch repo
             if not os.path.exists(repo_path):
                 os.makedirs(repo_path)
                 repo = git.Repo.clone_from(f"https://github.com/{repo_owner}/{repo_name}.git", repo_path, depth=1)
             else:
                 repo = git.Repo(repo_path)
                 repo.git.fetch("--all")
-                repo.git.reset('--hard')  # Ensure clean state
+                repo.git.reset('--hard')
 
-            # Determine the default branch if none is provided
             default_branch = repo.git.symbolic_ref("refs/remotes/origin/HEAD").split("/")[-1]
             if branch is None:
                 branch = default_branch
 
-            # Check branch existence & fallback
             available_branches = [head.name for head in repo.heads] + [ref.name.split("/")[-1] for ref in repo.remote().refs]
-            print("available_branches", available_branches)
             if branch in available_branches:
                 repo.git.checkout(branch)
             else:
                 print(f"⚠️ Branch '{branch}' not found. Falling back to '{default_branch}'.")
                 repo.git.checkout(default_branch)
                 branch = default_branch
+                # Update repo_key so that it matches the branch actually indexed.
+                repo_key = f"{repo_owner}_{repo_name}_{branch}"
 
-            repo.git.reset('--hard')  # Ensure clean state before pulling
+            repo.git.reset('--hard')
             repo.git.pull()
 
-            # Process files concurrently
             valid_chunks = []
             with ThreadPoolExecutor(max_workers=os.cpu_count() * 2) as executor:
                 futures = []
@@ -458,12 +458,10 @@ def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str, branch: 
                     for file in files:
                         file_path = os.path.join(root, file)
                         futures.append(executor.submit(process_file, file_path, repo_path, repo_name))
-                
                 for future in tqdm(as_completed(futures), total=len(futures), desc="Processing files"):
                     chunks = future.result()
                     valid_chunks.extend(chunks)
 
-            # Define embedding function with retry logic
             def get_chunk_embedding(chunk):
                 try:
                     return embedding_model.encode(chunk["content"], convert_to_numpy=True).astype("float32")
@@ -471,30 +469,23 @@ def clone_and_index_repo(repo_owner: str, repo_name: str, task_id: str, branch: 
                     print(f"⚠️ Embedding failed: {e}. Retrying...")
                     return None
 
-            # Maintain base index for default branch, delta indexes for others
-            base_index_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_base_hybrid.index")
-            base_metadata_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_base_metadata.pkl")
-            version_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_{branch}_version.txt")
-
+            # Use the actual branch name for naming the index/metadata files.
             if branch == default_branch:
-                index_file, metadata_file = base_index_file, base_metadata_file
+                index_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_{default_branch}_hybrid.index")
+                metadata_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_{default_branch}_metadata.pkl")
             else:
                 index_file = os.path.join(INDEXES_DIR, f"{repo_key}_delta.index")
                 metadata_file = os.path.join(INDEXES_DIR, f"{repo_key}_delta_metadata.pkl")
 
+            version_file = os.path.join(INDEXES_DIR, f"{repo_owner}_{repo_name}_{branch}_version.txt")
             indexer = CodeCompassIndexer(index_file, metadata_file, d, nlist=256)
-
-            # Incremental Indexing
             indexer.update_index(valid_chunks, get_chunk_embedding)
 
             stop_event.set()
-
-            # Update version file atomically
             with open(version_file + ".tmp", "w") as f:
                 f.write(str(time.time()))
             os.replace(version_file + ".tmp", version_file)
 
-            # Invalidate in-memory cache
             if repo_key in loaded_indexes:
                 del loaded_indexes[repo_key]
 
