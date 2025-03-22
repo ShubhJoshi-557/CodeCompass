@@ -17,6 +17,7 @@ interface Repo {
   owner: string;
   branch: string;
   token: string;
+  repoTree: [];
 }
 
 // 📌 Define Store Interface
@@ -26,13 +27,15 @@ interface CodeCompassState {
   explanations: Record<string, string>;
   currentRepo: Repo;
   currentFolder: string;
+  repoTreeLoading: boolean;
 
   setFiles: (files: FileItem[]) => void;
   setSearchResults: (results: FileItem[]) => void;
   setExplanation: (filePath: string, explanation: string) => void;
   setCurrentRepo: (repo: Repo) => void;
-  updateCurrentRepo: (key: keyof Repo, value: string) => void;
+  updateCurrentRepo: (key: keyof Repo, value: string | any) => void;
   setCurrentFolder: (currentFolder: string) => void;
+  setRepoTreeLoading: (repoTreeLoading: boolean) => void;
 }
 
 // 📌 Create Zustand Store
@@ -42,6 +45,7 @@ const useStore = create<CodeCompassState>()(
       files: [],
       searchResults: [],
       explanations: {},
+      repoTreeLoading: false,
 
       // 🏷️ Default repo state
       currentRepo: {
@@ -50,12 +54,14 @@ const useStore = create<CodeCompassState>()(
         owner: "",
         branch: "",
         token: "",
+        repoTree: [],
       },
 
       currentFolder: "",
       // 🔍 Setters
       setFiles: (files) => set({ files }),
       setSearchResults: (results) => set({ searchResults: results }),
+      setRepoTreeLoading: (repoTreeLoading) => set({repoTreeLoading}),
       setExplanation: (filePath, explanation) =>
         set((state) => ({
           explanations: { ...state.explanations, [filePath]: explanation },

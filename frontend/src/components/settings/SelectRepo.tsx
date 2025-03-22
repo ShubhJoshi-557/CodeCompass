@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -11,11 +10,16 @@ import {
 import useStore from "@/store/store";
 import { Folder } from "lucide-react";
 import { RepoForm } from "./Form";
+import { useState } from "react";
 
 export function SelectRepo() {
   const { currentRepo } = useStore();
+  const [open, setOpen] = useState(false); // State for dialog visibility
+
+  const closeDialog = () => setOpen(false); // Function to close dialog
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
           variant="secondary"
@@ -46,11 +50,8 @@ export function SelectRepo() {
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <RepoForm />
+          <RepoForm closeDialog={closeDialog} />
         </div>
-        {/* <DialogFooter>
-          <Button type="submit">Save changes</Button>
-        </DialogFooter> */}
       </DialogContent>
     </Dialog>
   );

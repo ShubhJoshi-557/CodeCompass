@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import useStore from "@/store/store";
+import { fetchLatestCommitSHA, fetchRepoTree } from "@/lib/githubapi";
+import { toast } from "sonner";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const formSchema = z.object({
   repo_url: z
@@ -39,9 +42,10 @@ const formSchema = z.object({
   ]),
 });
 
-export function RepoForm() {
-  const { currentRepo, updateCurrentRepo } = useStore();
-  // 1. Define your form.
+export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
+  const { updateCurrentRepo, setCurrentFolder, repoTreeLoading, setRepoTreeLoading } = useStore();
+  const queryClient = useQueryClient();
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -50,8 +54,8 @@ export function RepoForm() {
       token: "",
     },
   });
-
-  function parseGitHubURL(values:any) {
+ 
+  function parseGitHubURL(values: any) {
     const regex =
       /github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?(?:\/tree\/([^\/]+))?/;
     const match = values.repo_url.match(regex);
@@ -61,29 +65,98 @@ export function RepoForm() {
         owner: match[1],
         repo: match[2].split(".git")[0],
         branch: values.branch || match[3] || "default (main/master)",
-        token:
-          values.token,
+        token: values.token,
       };
-    } else {
-      return null;
     }
+    return null;
   }
-  // 2. Define a submit handler.
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
-    console.log(values);
+
+  const fetchSHA = useMutation({
+    mutationFn: async ({ owner, repo, branch }: any) =>
+      fetchLatestCommitSHA({ owner, repo, branch }),
+  });
+
+  const fetchTree = useMutation({
+    mutationFn: async ({ owner, repo, commitSHA }: any) =>
+      fetchRepoTree({ owner, repo, commitSHA }),
+  });
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    console.log("Form submitted:", values);
+
     const repo_obj = parseGitHubURL(values);
-    if (repo_obj) {
+    if (!repo_obj) {
+      toast.error("Invalid GitHub repository URL.");
+      return;
+    }
+
+    setRepoTreeLoading(true); // Start loading state
+
+    try {
+      const commitSHA = await fetchSHA.mutateAsync({
+        owner: repo_obj.owner,
+        repo: repo_obj.repo,
+        branch: repo_obj.branch,
+      });
+
+      if (!commitSHA) {
+        toast.error("Repository not fetched!", {
+          description: `Repository size exceeds limit (50MB). Skipping fetch.`,
+        });
+        setRepoTreeLoading(false);
+        return;
+      }
+
+      const repoTree = await fetchTree.mutateAsync({
+        owner: repo_obj.owner,
+        repo: repo_obj.repo,
+        commitSHA,
+      });
+
+      if (!repoTree || repoTree.length === 0) {
+        toast.error("Failed to fetch repository tree.");
+        setRepoTreeLoading(false);
+        return;
+      }
+
+      setCurrentFolder("");
+
+      // ✅ Update Zustand store only if successful
       updateCurrentRepo("link", repo_obj.link);
       updateCurrentRepo("owner", repo_obj.owner);
       updateCurrentRepo("repo", repo_obj.repo);
       updateCurrentRepo("branch", repo_obj.branch);
       updateCurrentRepo("token", repo_obj.token);
+      updateCurrentRepo("repoTree", repoTree);
 
-      console.log("Updated currentRepo:", repo_obj);
-    } else {
-      console.error("Invalid GitHub repository URL.");
+      toast.success("Repository fetched successfully");
+      closeDialog();
+      queryClient.invalidateQueries({ queryKey: ["repoTree"] });
+    } catch (error: any) {
+      if (error.response) {
+        const status = error.response.status;
+        if (status === 401) {
+          toast.warning("Invalid Token", {
+            description: "Please add a valid Personal Access Token.",
+          });
+        } else if (status === 403) {
+          toast.warning("Rate Limit Exceeded");
+        } else if (status === 404) {
+          toast.warning("Repository not found", {
+            description:
+              "Check the repo/branch name or add a personal access token for private repos.",
+          });
+        } else {
+          toast.error("Failed to fetch repository", {
+            description: `Unexpected error: ${status}`,
+          });
+        }
+      } else {
+        console.error("Unknown error:", error);
+        toast.error("An unexpected error occurred.");
+      }
+    } finally {
+      setRepoTreeLoading(false); // Stop loading state
     }
   }
 
@@ -156,7 +229,11 @@ export function RepoForm() {
             </FormItem>
           )}
         />
-        <Button type="submit">Save</Button>
+          <Button type="submit" disabled={repoTreeLoading}>
+            {repoTreeLoading ? "Fetching..." : "Save"}
+          </Button>
+        
+        
       </form>
     </Form>
   );

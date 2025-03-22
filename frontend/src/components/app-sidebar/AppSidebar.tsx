@@ -27,7 +27,7 @@ import { UserTab } from "./UserTab";
 export function AppSidebar() {
   const { currentRepo, currentFolder } = useStore();
   const FolderPath = ({ path }: any) => {
-    const getDisplayName = (path) => {
+    const getDisplayName = (path:any) => {
       const parts = path.split("/");
       if (parts.length === 1) return path; // Single folder case
       return `.../${parts[parts.length - 1]}`;
@@ -65,7 +65,7 @@ export function AppSidebar() {
           <SidebarMenu>
             <SidebarMenuItem className="px-3 pt-2">
               <Link href="/">
-                <Button className="font-semibold">
+                <Button className="font-semibold cursor-pointer">
                   <Edit />
                   New Chat
                 </Button>
@@ -91,15 +91,10 @@ export function AppSidebar() {
               <div className="rounded-lg mb-2 py-2 px-5 text-[14px] bg-neutral-200 dark:bg-neutral-800 flex justify-between">
                 <div>Current Folder: </div>
                 <FolderPath path={currentFolder} />
-                {/* !== "" ? "/" + (currentFolder.split("/").length>2) : ""} */}
               </div>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <RepoTree
-                    owner={currentRepo?.owner}
-                    repo={currentRepo?.repo}
-                    branch={currentRepo?.branch}
-                  />
+                  <RepoTree />
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
@@ -130,7 +125,7 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
-      {process.env.NEXT_PUBLIC_VERSION === "PROD" && <UserTab />}
+      {/* {process.env.NEXT_PUBLIC_VERSION === "PROD" && <UserTab />} */}
     </Sidebar>
   );
 }

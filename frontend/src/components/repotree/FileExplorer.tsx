@@ -4,15 +4,15 @@ import { FaFile, FaFolder, FaFolderOpen } from "react-icons/fa";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 
 const buildFileTree = (files: any) => {
-  let root: any = {};
+  const root: any = {};
 
   files.forEach((file: any) => {
-    let parts = file.path.split("/");
+    const parts = file.path.split("/");
     let current = root;
     let fullPath = "";
 
     for (let i = 0; i < parts.length; i++) {
-      let part = parts[i];
+      const part = parts[i];
       fullPath += (i === 0 ? "" : "/") + part;
 
       if (!current[part]) {

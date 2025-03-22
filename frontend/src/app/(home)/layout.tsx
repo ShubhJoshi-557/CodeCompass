@@ -37,7 +37,7 @@ export default function AppLayout({
           <SidebarTrigger />
           <div className="flex">
             <ThemeToggleButton />
-            {process.env.NEXT_PUBLIC_VERSION === "PROD" && <AuthButton />}
+            {/* {process.env.NEXT_PUBLIC_VERSION === "PROD" && <AuthButton />} */}
           </div>
         </header>
 

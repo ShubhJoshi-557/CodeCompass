@@ -30,26 +30,48 @@ export interface FetchRepoTreeParams {
   commitSHA: string;
 }
 
-// Fetch latest commit SHA of the branch
+// ✅ Fetch repository metadata (to get size)
+export const fetchRepoMetadata = async (owner: string, repo: string): Promise<number> => {
+  const response = await axios.get(`${GITHUB_API_URL}/${owner}/${repo}`, {
+    headers: getHeaders(),
+  });
+  return response.data.size; // Size in KB
+};
+
+// ✅ Fetch latest commit SHA (with conditional size check)
 export const fetchLatestCommitSHA = async ({
   owner,
   repo,
   branch,
-}: FetchCommitSHAParams): Promise<string> => {
+}: FetchCommitSHAParams): Promise<string | null> => {
+  const isDemo = process.env.NEXT_PUBLIC_VERSION === "DEMO";
+
+  if (isDemo) {
+    const size = await fetchRepoMetadata(owner, repo);
+    if (size > 50000) {
+      console.warn(`Repository size (${size / 1024} MB) exceeds limit (50MB). Skipping fetch.`);
+      return null;
+    } 
+  }
+
   const response = await axios.get(
     `${GITHUB_API_URL}/${owner}/${repo}/branches/${branch}`,
     { headers: getHeaders() }
   );
-    console.log(response, "RESSS")
   return response.data.commit.sha;
 };
 
-// Fetch the repository tree
+// ✅ Fetch repo tree (only if repo size is ≤ 50MB in DEMO mode)
 export const fetchRepoTree = async ({
   owner,
   repo,
   commitSHA,
 }: FetchRepoTreeParams): Promise<GitHubTreeItem[]> => {
+  if (!commitSHA) {
+    console.warn("Skipping repo tree fetch: No commit SHA available.");
+    return [];
+  }
+
   const response = await axios.get(
     `${GITHUB_API_URL}/${owner}/${repo}/git/trees/${commitSHA}?recursive=1`,
     { headers: getHeaders() }

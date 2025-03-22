@@ -29,7 +29,7 @@ export default function RootLayout({
 }>) {
   const queryClient = new QueryClient();
   return (
-    <AuthProvider>
+    // <AuthProvider>
       <ReactQueryProvider>
         <html lang="en" suppressHydrationWarning>
           <body
@@ -46,6 +46,6 @@ export default function RootLayout({
           </body>
         </html>
       </ReactQueryProvider>
-    </AuthProvider>
+    // </AuthProvider>
   );
 }
