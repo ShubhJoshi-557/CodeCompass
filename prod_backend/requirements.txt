@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+faiss-cpu
+numpy
+requests
+pydantic
+sentence-transformers
+celery
+gitpython
+redis
+uuid
+pickle5

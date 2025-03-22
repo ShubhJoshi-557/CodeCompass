@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,7 +19,11 @@ import pickle
 import time
 import torch
 import glob
+from groq import Groq
+from dotenv import load_dotenv
 import subprocess
+
+load_dotenv()  # Load environment variables from .env file
 
 # --------------------------
 # Database Setup
@@ -75,6 +80,7 @@ BLACKLIST_EXTENSIONS = frozenset({
 # --------------------------
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device=DEVICE)
+llm_model="qwen-2.5-coder-32b"
 
 # --------------------------
 # Database Dependency
@@ -216,6 +222,27 @@ def process_file(file_path, repo_path, repo_name):
         print(f"Error processing {file_path}: {str(e)}")
         return []
 
+def create_streaming_response(prompt: str):
+    try:
+        completion = client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.6,
+            max_completion_tokens=4096,
+            top_p=0.95,
+            stream=True,
+            stop=None,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    def stream_generator():
+        for chunk in completion:
+            content = chunk.choices[0].delta.content or ""
+            yield content
+
+    return StreamingResponse(stream_generator(), media_type="text/plain")
+
 # --------------------------
 # CodeCompassIndexer: Hybrid FAISS Index with Incremental Updates
 # --------------------------
@@ -310,6 +337,10 @@ class CodeCompassIndexer:
 # --------------------------
 app = FastAPI()
 
+client = Groq(
+    api_key=os.getenv("GROQ_API_KEY"),
+)
+
 class SearchQuery(BaseModel):
     query: str
     repo_owner: str = None
@@ -317,6 +348,9 @@ class SearchQuery(BaseModel):
     branch: str = None
     folder: str = None
     filters: dict = {}
+
+class SearchQuerySnippet(BaseModel):
+    snippet: str
 
 # Updated indexing endpoint now accepts an optional branch parameter.
 @app.post("/repos/{repo_owner}/{repo_name}")
@@ -367,7 +401,6 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
     else:
         matching_keys = get_all_repo_keys()
 
-    print(matching_keys)
     for repo_key in matching_keys:
         idx, emb_cache = load_repo_index(repo_key)
         if idx is None:
@@ -389,6 +422,21 @@ def search_code(query: SearchQuery, db: Session = Depends(get_db)):
     response = {"results": results, "time_taken": time.time() - start_time}
     redis_client.set(cache_key, pickle.dumps(response), ex=3600)
     return response
+
+@app.post("/ai-explain")
+async def explain_code(payload: SearchQuerySnippet):
+    prompt = f"Explain the following code in simple terms:\n\n{payload.snippet}\n\nExplanation:"
+    return create_streaming_response(prompt)
+
+@app.post("/ai-refactor")
+async def refactor_code(payload: SearchQuerySnippet):
+    prompt = f"Provide refactoring suggestions for the following code:\n\n{payload.snippet}\n\nRefactoring Suggestions:"
+    return create_streaming_response(prompt)
+
+@app.post("/ai-scan")
+async def security_scan(payload: SearchQuerySnippet):
+    prompt = f"Analyze the following code for security vulnerabilities and compliance issues:\n\n{payload.snippet}\n\nSecurity Vulnerability & Compliance Scan:"
+    return create_streaming_response(prompt)
 
 def get_all_repo_keys():
     """
