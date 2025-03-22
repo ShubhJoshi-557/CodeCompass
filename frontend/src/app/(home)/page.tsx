@@ -1,4 +1,4 @@
-import { SearchBar } from "@/components/searchbar/SearchBar";
+import SearchBar from "@/components/searchbar/SearchBar";
 
 const page = () => {
   return (

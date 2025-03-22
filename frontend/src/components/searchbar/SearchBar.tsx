@@ -24,7 +24,7 @@ const FormSchema = z.object({
     }),
 });
 
-export function SearchBar() {
+export default function SearchBar() {
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
   });
@@ -36,7 +36,7 @@ export function SearchBar() {
 
   return (
     <Form {...form}>
-      <form className="w-3xl space-y-6">
+      <form className="w-3xl space-y-6 mx-auto">
         <FormField
           control={form.control}
           name="query"

@@ -25,12 +25,14 @@ interface CodeCompassState {
   searchResults: FileItem[];
   explanations: Record<string, string>;
   currentRepo: Repo;
+  currentFolder: string;
 
   setFiles: (files: FileItem[]) => void;
   setSearchResults: (results: FileItem[]) => void;
   setExplanation: (filePath: string, explanation: string) => void;
   setCurrentRepo: (repo: Repo) => void;
   updateCurrentRepo: (key: keyof Repo, value: string) => void;
+  setCurrentFolder: (currentFolder: string) => void;
 }
 
 // 📌 Create Zustand Store
@@ -50,6 +52,7 @@ const useStore = create<CodeCompassState>()(
         token: "",
       },
 
+      currentFolder: "",
       // 🔍 Setters
       setFiles: (files) => set({ files }),
       setSearchResults: (results) => set({ searchResults: results }),
@@ -60,7 +63,7 @@ const useStore = create<CodeCompassState>()(
 
       // 🔄 Set Entire Repo
       setCurrentRepo: (repo) => set({ currentRepo: repo }),
-
+      setCurrentFolder: (currentFolder) =>  set({currentFolder}),
       // 🔄 Update Specific Repo Property
       updateCurrentRepo: (key, value) =>
         set((state) => ({

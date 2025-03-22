@@ -14,7 +14,7 @@ export default function LoginLayout({
   return (
     <div className="h-full flex flex-col justify-between">
       {children}
-      <div className="sticky bottom-8">
+      <div className="w-full sticky z-50 bottom-8 flex justify-between bg-white dark:bg-neutral-950">
         <SearchBar />
       </div>
     </div>

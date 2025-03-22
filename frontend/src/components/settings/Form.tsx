@@ -51,7 +51,7 @@ export function ProfileForm() {
     },
   });
 
-  function parseGitHubURL(values) {
+  function parseGitHubURL(values:any) {
     const regex =
       /github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?(?:\/tree\/([^\/]+))?/;
     const match = values.repo_url.match(regex);

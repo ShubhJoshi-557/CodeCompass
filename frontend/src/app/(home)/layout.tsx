@@ -44,7 +44,7 @@ export default function AppLayout({
         {/* Content area with margin-top to avoid overlap */}
         <main className="mt-5 h-full">{children}</main>
         <Toaster />
-        <footer className="sticky bottom-0 text-xs bg-white dark:bg-neutral-950 text-neutral-500 text-center p-2">
+        <footer className="sticky z-50 bottom-0 text-xs bg-white dark:bg-neutral-950 text-neutral-500 text-center p-2">
           CodeCompass is powered by AI, and its results may not always be
           accurate.
         </footer>

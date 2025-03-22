@@ -1,10 +1,12 @@
 "use client";
 
 import { fetchLatestCommitSHA, fetchRepoTree } from "@/lib/githubapi";
+import useStore from "@/store/store";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import "react-folder-tree/dist/style.css";
 import { toast } from "sonner";
+import { Skeleton } from "../ui/skeleton";
 import FileTree from "./FileExplorer";
 
 interface RepoTreeProps {
@@ -14,6 +16,8 @@ interface RepoTreeProps {
 }
 
 const RepoTree: React.FC<RepoTreeProps> = ({ owner, repo, branch }) => {
+  const { setCurrentFolder } = useStore();
+
   // Fetch latest commit SHA
   const {
     data: commitSHA,
@@ -33,6 +37,7 @@ const RepoTree: React.FC<RepoTreeProps> = ({ owner, repo, branch }) => {
 
   useEffect(() => {
     if (isSuccess) {
+      setCurrentFolder("");
       toast.success("Repository fetched successfully", {
         // description: "Please add your Personal access token.",
         // action: {
@@ -59,18 +64,30 @@ const RepoTree: React.FC<RepoTreeProps> = ({ owner, repo, branch }) => {
       });
     } else if (fetchRepoError && fetchRepoError?.status === 404) {
       toast.warning("Repository not found", {
-        description: "Check the repo/branch name or add a personal access token for private repos.",
+        description:
+          "Check the repo/branch name or add a personal access token for private repos.",
         // action: {
         //   label: "Ok",
         //   onClick: () => console.log("Ok"),
         // },
       });
     }
-  }, [fetchRepoError, isSuccess, commitSHA, repoTree]);
+  }, [fetchRepoError, isSuccess, repoTree]);
 
   console.log(repoTree, fetchRepoError, commitSHA, "STATUS");
-  if (!repoTree) return <p>Loading...</p>;
-
+  if (!repoTree)
+    return (
+      <div className="p-4  bg-neutral-200 dark:bg-neutral-800 rounded-lg shadow-md">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-[150px]" />
+          <Skeleton className="ml-14 h-4 w-[150px]" />
+          <Skeleton className="ml-14 h-4 w-[150px]" />
+          <Skeleton className="h-4 w-[150px]" />
+          <Skeleton className="ml-14 h-4 w-[150px]" />
+          <Skeleton className="ml-14 h-4 w-[150px]" />
+        </div>
+      </div>
+    );
   return <div>{repoTree && <FileTree data={repoTree} />}</div>;
 };
 
