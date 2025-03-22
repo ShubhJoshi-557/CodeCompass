@@ -31,9 +31,9 @@ export function SearchButton({ onSearch }: SearchButtonProps) {
             className="cursor-pointer"
             onSelect={() => onSearch("current-file")}
           >
-            Current File
+            Current Folder
             <DropdownMenuShortcut className="border rounded-md p-1 text-[10px]">
-              ctrl+/
+              ctrl+k
             </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem
@@ -42,7 +42,7 @@ export function SearchButton({ onSearch }: SearchButtonProps) {
           >
             Entire Codebase
             <DropdownMenuShortcut className="border rounded-md p-1 text-[10px]">
-              ctrl+shift+/
+              ctrl+shift+k
             </DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuGroup>

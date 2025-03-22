@@ -12,6 +12,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { SearchButton } from "./SearchButton";
+import { useEffect } from "react";
 
 const FormSchema = z.object({
   query: z
@@ -31,8 +32,25 @@ export default function SearchBar() {
 
   function onSubmit(data: z.infer<typeof FormSchema>, searchType: string) {
     console.log(`Searching in: ${searchType}`, data);
-    // Handle search logic based on searchType ("current-file" or "entire-codebase")
+    // Handle search logic based on searchType ("current-folder" or "all")
   }
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === "k") {
+        event.preventDefault(); // Prevent default browser behavior
+
+        if (event.shiftKey) {
+          form.handleSubmit((data) => onSubmit(data, "current-folder"))();
+        } else {
+          form.handleSubmit((data) => onSubmit(data, "all"))();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [form]);
 
   return (
     <Form {...form}>
@@ -49,7 +67,7 @@ export default function SearchBar() {
                       className="border-none outline-none resize-none max-h-[180px]"
                       placeholder="Search code, understand logic, and debug smarter..."
                       {...field}
-                    ></Textarea>
+                    />
                   </FormControl>
                 </div>
                 <SearchButton

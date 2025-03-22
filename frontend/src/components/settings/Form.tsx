@@ -39,7 +39,7 @@ const formSchema = z.object({
   ]),
 });
 
-export function ProfileForm() {
+export function RepoForm() {
   const { currentRepo, updateCurrentRepo } = useStore();
   // 1. Define your form.
   const form = useForm<z.infer<typeof formSchema>>({

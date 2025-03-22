@@ -10,16 +10,16 @@ import {
 } from "@/components/ui/dialog";
 import useStore from "@/store/store";
 import { Folder } from "lucide-react";
-import { ProfileForm } from "./Form";
+import { RepoForm } from "./Form";
 
 export function SelectRepo() {
-  const { currentRepo, updateCurrentRepo } = useStore();
+  const { currentRepo } = useStore();
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button
           variant="secondary"
-          className="w-full border  flex justify-between"
+          className="w-full border cursor-pointer flex justify-between"
         >
           {currentRepo?.link === "" && (<span className="my-auto">Select Repo</span>)}
           {currentRepo?.link &&
@@ -46,7 +46,7 @@ export function SelectRepo() {
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <ProfileForm />
+          <RepoForm />
         </div>
         {/* <DialogFooter>
           <Button type="submit">Save changes</Button>

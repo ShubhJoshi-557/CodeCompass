@@ -40,7 +40,8 @@ export function AppSidebar() {
             className="cursor-pointer text-blue-500"
             onClick={() => {
               document.getElementById(`${currentFolder}`)?.scrollIntoView({
-                behavior: "smooth", block: "center" 
+                behavior: "smooth",
+                block: "center",
               });
             }}
           >
@@ -60,16 +61,18 @@ export function AppSidebar() {
       </Link>
 
       <SidebarContent>
-        <SidebarMenu>
-          <SidebarMenuItem className="px-3 pt-2">
-            <Link href="/">
-              <Button className="font-semibold">
-                <Edit />
-                New Chat
-              </Button>
-            </Link>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {process.env.NEXT_PUBLIC_VERSION === "PROD" && (
+          <SidebarMenu>
+            <SidebarMenuItem className="px-3 pt-2">
+              <Link href="/">
+                <Button className="font-semibold">
+                  <Edit />
+                  New Chat
+                </Button>
+              </Link>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
 
         <SidebarGroup>
           <SidebarGroupLabel>Repository</SidebarGroupLabel>
@@ -102,30 +105,32 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-        <SidebarGroup>
-          <SidebarGroupLabel>Recent Searches</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <Link href="/q/dbqkiyhgkyg">DB Query</Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <Link href="/q/apiqkiyhgkyg">API Request Query</Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <Link href="/q/docqkiyhgkyg">Documentation Query</Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {process.env.NEXT_PUBLIC_VERSION === "PROD" && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Recent Searches</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton>
+                    <Link href="/q/dbqkiyhgkyg">DB Query</Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton>
+                    <Link href="/q/apiqkiyhgkyg">API Request Query</Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton>
+                    <Link href="/q/docqkiyhgkyg">Documentation Query</Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
-      <UserTab />
+      {process.env.NEXT_PUBLIC_VERSION === "PROD" && <UserTab />}
     </Sidebar>
   );
 }

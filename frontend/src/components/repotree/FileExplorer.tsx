@@ -36,7 +36,6 @@ const FileTreeNode = ({ node }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const { currentFolder, setCurrentFolder } = useStore();
   const hasChildren = node.children && Object.keys(node.children).length > 0;
-  console.log(node, "NODE");
   function truncateString(str:string) {
     return str.length > 15 ? str.slice(0, 15) + "..." : str;
 }
