@@ -54,7 +54,7 @@ export default function SearchBar() {
 
   return (
     <Form {...form}>
-      <form className="w-3xl space-y-6 mx-auto">
+      <form className="md:w-xl lg:w-2xl space-y-6 mx-auto">
         <FormField
           control={form.control}
           name="query"

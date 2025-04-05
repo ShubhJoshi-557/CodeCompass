@@ -229,7 +229,7 @@ export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
             </FormItem>
           )}
         />
-          <Button type="submit" disabled={repoTreeLoading}>
+          <Button className="cursor-pointer" type="submit" disabled={repoTreeLoading}>
             {repoTreeLoading ? "Fetching..." : "Save"}
           </Button>
         
