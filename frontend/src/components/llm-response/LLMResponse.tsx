@@ -5,7 +5,7 @@ import CopyButton from "../ui/copy-button";
 
 // Example CodeBlock component (you can enhance it with syntax highlighting)
 const CodeBlockComponent = ({ language, code }: any) => (
-  <div className="my-2">
+  <div className="max-w-xl my-2">
     <CodeBlock
       language={language}
       filename=" "
@@ -76,12 +76,12 @@ const LLMResponse = ({ title, content }: any) => {
   };
 
   return (
-    <div className="w-2xl mx-auto">
+    <div className="w-lg mx-auto">
       <div
         id={`${title}-content`}
-        className="w-2xl rounded-3xl bg-neutral-200 dark:bg-neutral-900 py-7 px-8 m-auto"
+        className=" rounded-3xl bg-neutral-200 dark:bg-neutral-900 p-6 m-auto"
       >
-        <p className="text-3xl mb-1">{title}</p>
+        <p className="text-2xl mb-1">{title}</p>
         {segments.map((segment, index) =>
           segment.type === "text" ? (
             <ReactMarkdown key={index}>{segment.content}</ReactMarkdown>

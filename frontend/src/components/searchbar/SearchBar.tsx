@@ -13,6 +13,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { SearchButton } from "./SearchButton";
 import { useEffect } from "react";
+import { v4 as uuidv4 } from 'uuid';
+import { usePathname, useRouter } from "next/navigation";
 
 const FormSchema = z.object({
   query: z
@@ -26,12 +28,24 @@ const FormSchema = z.object({
 });
 
 export default function SearchBar() {
+  const pathname = usePathname()
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
   });
+  const router = useRouter();
 
   function onSubmit(data: z.infer<typeof FormSchema>, searchType: string) {
-    console.log(`Searching in: ${searchType}`, data);
+    console.log(`Searching in: ${searchType}`, data, pathname);
+    let arr = pathname.split("/q/") 
+    console.log(arr)
+    if(arr[1]){
+      console.log(arr[1]);
+    } else {  
+      const chatId = uuidv4();
+      console.log(chatId); // e.g., 'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+      router.push(`/q/${chatId}`);
+    }
+
     // Handle search logic based on searchType ("current-folder" or "all")
   }
 
@@ -41,9 +55,9 @@ export default function SearchBar() {
         event.preventDefault(); // Prevent default browser behavior
 
         if (event.shiftKey) {
-          form.handleSubmit((data) => onSubmit(data, "current-folder"))();
-        } else {
           form.handleSubmit((data) => onSubmit(data, "all"))();
+        } else {
+          form.handleSubmit((data) => onSubmit(data, "current-folder"))();
         }
       }
     };

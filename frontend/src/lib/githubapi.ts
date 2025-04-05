@@ -6,6 +6,7 @@ const GITHUB_API_URL = "https://api.github.com/repos";
 // Function to get headers dynamically
 const getHeaders = () => {
   const token = useStore.getState().currentRepo.token; // Fetch token from Zustand store
+  console.log("TOKEN", token)
   return {
     Authorization: token ? `token ${token}` : "", // Only add token if available
     Accept: "application/vnd.github.v3+json",

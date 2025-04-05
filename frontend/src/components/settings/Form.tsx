@@ -91,7 +91,7 @@ export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
     }
 
     setRepoTreeLoading(true); // Start loading state
-
+    updateCurrentRepo("token", repo_obj.token);
     try {
       const commitSHA = await fetchSHA.mutateAsync({
         owner: repo_obj.owner,
@@ -126,7 +126,6 @@ export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
       updateCurrentRepo("owner", repo_obj.owner);
       updateCurrentRepo("repo", repo_obj.repo);
       updateCurrentRepo("branch", repo_obj.branch);
-      updateCurrentRepo("token", repo_obj.token);
       updateCurrentRepo("repoTree", repoTree);
 
       toast.success("Repository fetched successfully");
