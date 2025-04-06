@@ -2,8 +2,8 @@
 import ReactMarkdown from "react-markdown";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import CopyButton from "../ui/copy-button";
 import { CodeBlockDemo } from "../code-block/CodeBlock";
+import CopyButton from "../ui/copy-button";
 
 const MarkdownRenderer = ({ title, content }: any) => {
   return (

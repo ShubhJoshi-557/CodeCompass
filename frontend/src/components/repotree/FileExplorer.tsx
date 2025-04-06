@@ -1,7 +1,12 @@
 import useStore from "@/store/store";
 import { useState } from "react";
 import { FaFile, FaFolder, FaFolderOpen } from "react-icons/fa";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 const buildFileTree = (files: any) => {
   const root: any = {};
@@ -36,9 +41,9 @@ const FileTreeNode = ({ node }: any) => {
   const [isOpen, setIsOpen] = useState(false);
   const { currentFolder, setCurrentFolder } = useStore();
   const hasChildren = node.children && Object.keys(node.children).length > 0;
-  function truncateString(str:string) {
+  function truncateString(str: string) {
     return str.length > 15 ? str.slice(0, 15) + "..." : str;
-}
+  }
   return (
     <div className="ml-0">
       {node.type === "tree" ? (
@@ -61,15 +66,15 @@ const FileTreeNode = ({ node }: any) => {
           <div>{node.name}</div>
         </div>
       ) : (
-        <div
-          className="flex cursor-pointer items-center hover:bg-zinc-400 dark:hover:bg-zinc-700 rounded-sm"
-        >
+        <div className="flex cursor-pointer items-center hover:bg-zinc-400 dark:hover:bg-zinc-700 rounded-sm">
           <FaFile className="mx-1 my-auto text-gray-400" />
           {/* <File /> */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <div className="cursor-pointer">{truncateString(node.name)}</div>
+                <div className="cursor-pointer">
+                  {truncateString(node.name)}
+                </div>
               </TooltipTrigger>
               <TooltipContent>{node.path}</TooltipContent>
             </Tooltip>

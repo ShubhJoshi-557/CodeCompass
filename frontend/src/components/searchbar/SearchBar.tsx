@@ -36,7 +36,7 @@ export default function SearchBar() {
 
   function onSubmit(data: z.infer<typeof FormSchema>, searchType: string) {
     console.log(`Searching in: ${searchType}`, data, pathname);
-    let arr = pathname.split("/q/") 
+    const arr = pathname.split("/q/") 
     console.log(arr)
     if(arr[1]){
       console.log(arr[1]);

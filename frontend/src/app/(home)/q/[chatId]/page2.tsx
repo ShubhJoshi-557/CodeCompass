@@ -1,5 +1,4 @@
 "use client";
-import { CodeBlockDemo } from "@/components/code-block/CodeBlock";
 import MarkdownRenderer from "@/components/markdown-renderer/MarkdownRenderer";
 
 const content = `

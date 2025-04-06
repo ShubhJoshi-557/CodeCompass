@@ -1,15 +1,12 @@
-import { Metadata } from "next"
-import Image from "next/image"
-import Link from "next/link"
+import { Metadata } from "next";
+import Image from "next/image";
 
-import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
 // import { UserAuthForm } from "@/app/(app)/examples/authentication/components/user-auth-form"
 
 export const metadata: Metadata = {
   title: "Authentication",
   description: "Authentication forms built using the components.",
-}
+};
 
 export default function AuthenticationPage() {
   return (
@@ -48,7 +45,12 @@ export default function AuthenticationPage() {
           <div className="relative z-20 mt-auto">
             <blockquote className="space-y-2">
               <p className="text-md">
-                <em>&ldquo;An AI-powered code search and explanation tool that helps you navigate, explore, and understand complex codebases effortlessly with intelligent insights, precise search, and structured analysis&rdquo;</em>
+                <em>
+                  &ldquo;An AI-powered code search and explanation tool that
+                  helps you navigate, explore, and understand complex codebases
+                  effortlessly with intelligent insights, precise search, and
+                  structured analysis&rdquo;
+                </em>
               </p>
               {/* <footer className="text-sm">Sofia Davis</footer> */}
             </blockquote>
@@ -86,10 +88,8 @@ export default function AuthenticationPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-
-
 
 // import React from 'react'
 

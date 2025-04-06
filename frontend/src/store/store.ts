@@ -61,7 +61,7 @@ const useStore = create<CodeCompassState>()(
       // 🔍 Setters
       setFiles: (files) => set({ files }),
       setSearchResults: (results) => set({ searchResults: results }),
-      setRepoTreeLoading: (repoTreeLoading) => set({repoTreeLoading}),
+      setRepoTreeLoading: (repoTreeLoading) => set({ repoTreeLoading }),
       setExplanation: (filePath, explanation) =>
         set((state) => ({
           explanations: { ...state.explanations, [filePath]: explanation },
@@ -69,7 +69,7 @@ const useStore = create<CodeCompassState>()(
 
       // 🔄 Set Entire Repo
       setCurrentRepo: (repo) => set({ currentRepo: repo }),
-      setCurrentFolder: (currentFolder) =>  set({currentFolder}),
+      setCurrentFolder: (currentFolder) => set({ currentFolder }),
       // 🔄 Update Specific Repo Property
       updateCurrentRepo: (key, value) =>
         set((state) => ({

@@ -22,12 +22,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
-import { UserTab } from "./UserTab";
 
 export function AppSidebar() {
   const { currentRepo, currentFolder } = useStore();
   const FolderPath = ({ path }: any) => {
-    const getDisplayName = (path:any) => {
+    const getDisplayName = (path: any) => {
       const parts = path.split("/");
       if (parts.length === 1) return path; // Single folder case
       return `.../${parts[parts.length - 1]}`;

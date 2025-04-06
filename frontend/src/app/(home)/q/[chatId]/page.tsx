@@ -132,7 +132,7 @@ const page = () => {
       </p>
 
       {/* Scrollable horizontal area */}
-      <div className="h-[calc(100%-5rem)] overflow-x-auto tailwind-scrollbar scrollbar-thumb-neutral-500 scrollbar-track-transparent">
+      <div className="h-[calc(100%-5rem)] overflow-x-auto scrollbar-thumb-neutral-500 scrollbar-track-transparent">
         <div className="flex w-max min-w-full">
           {/* Code block section */}
           <div className="flex flex-col pl-0 pr-2 p-4 min-w-lg">

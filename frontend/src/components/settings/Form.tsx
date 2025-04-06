@@ -15,10 +15,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import useStore from "@/store/store";
 import { fetchLatestCommitSHA, fetchRepoTree } from "@/lib/githubapi";
-import { toast } from "sonner";
+import useStore from "@/store/store";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   repo_url: z
@@ -43,7 +43,12 @@ const formSchema = z.object({
 });
 
 export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
-  const { updateCurrentRepo, setCurrentFolder, repoTreeLoading, setRepoTreeLoading } = useStore();
+  const {
+    updateCurrentRepo,
+    setCurrentFolder,
+    repoTreeLoading,
+    setRepoTreeLoading,
+  } = useStore();
   const queryClient = useQueryClient();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -54,7 +59,7 @@ export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
       token: "",
     },
   });
- 
+
   function parseGitHubURL(values: any) {
     const regex =
       /github\.com\/([^\/]+)\/([^\/]+)(?:\.git)?(?:\/tree\/([^\/]+))?/;
@@ -228,11 +233,13 @@ export function RepoForm({ closeDialog }: { closeDialog: () => void }) {
             </FormItem>
           )}
         />
-          <Button className="cursor-pointer" type="submit" disabled={repoTreeLoading}>
-            {repoTreeLoading ? "Fetching..." : "Save"}
-          </Button>
-        
-        
+        <Button
+          className="cursor-pointer"
+          type="submit"
+          disabled={repoTreeLoading}
+        >
+          {repoTreeLoading ? "Fetching..." : "Save"}
+        </Button>
       </form>
     </Form>
   );
