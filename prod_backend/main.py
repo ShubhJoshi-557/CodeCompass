@@ -21,7 +21,6 @@ import torch
 import glob
 from groq import Groq
 from dotenv import load_dotenv
-import subprocess
 
 load_dotenv()  # Load environment variables from .env file
 
